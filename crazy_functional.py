@@ -32,6 +32,7 @@ def get_crazy_functions():
     from crazy_functions.PDF_Translate import 批量翻译PDF文档
     from crazy_functions.Google_Scholar_Assistant_Legacy import Google_Scholar_Assistant_Legacy
     from crazy_functions.Arxiv_Search_Assistant import Arxiv_Search_Assistant
+    from crazy_functions.Baidu_Scholar_Assistant import Baidu_Scholar_Assistant
     from crazy_functions.PDF_QA import PDF_QA标准文件输入
     from crazy_functions.Latex_Project_Polish import Latex中文润色
     from crazy_functions.Latex_Project_Polish import Latex英文纠错
@@ -293,6 +294,13 @@ def get_crazy_functions():
             "AsButton": True,  # 设为快捷按钮
             "Info": "直连 arXiv 检索最新论文并生成归纳对比表格 | 输入参数为检索关键词，例如 RAG long context",
             "Function": HotReload(Arxiv_Search_Assistant),
+        },
+        "中文学术论文搜索助手（百度学术/知网镜像）": {
+            "Group": "学术",
+            "Color": "stop",
+            "AsButton": True,  # 设为快捷按钮
+            "Info": "检索原生中文学术论文源（17篇中文论文+最多3篇英文论文） | 输入参数为中文学术主题，如 RAG 长上下文",
+            "Function": HotReload(Baidu_Scholar_Assistant),
         },
         "理解PDF文档内容 （模仿ChatPDF）": {
             "Group": "学术",
