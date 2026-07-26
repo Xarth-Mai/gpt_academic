@@ -113,7 +113,83 @@ def get_auth_ip():
     return ip
 
 
+def clean_search_query(q):
+    """提取核心检索关键词，给专有名词加双引号防止单字拆分杂音"""
+    import re
+    noise_terms = [
+        "请结合互联网信息回答以下问题：", "请结合互联网信息回答", "请", "回答", "分析", "归纳对比",
+        "归纳", "对比", "检索", "查找", "搜一下", "的最新代表性论文并归纳对比", "最新代表性论文"
+    ]
+    for term in noise_terms:
+        q = q.replace(term, " ")
+
+    # 清理多余空格
+    q = re.sub(r'\s+', ' ', q).strip()
+
+    # 修复“年长上下文”被误切分引发汉字“长”字典结果的陷阱
+    q = q.replace("年长上下文", "长上下文 2024 2025")
+
+    # 为核心技术概念加英文双引号，防止搜索引擎单字拆分
+    tech_terms = ["RAG", "Long Context", "长上下文", "检索优化", "大模型"]
+    for term in tech_terms:
+        if term in q and f'"{term}"' not in q:
+            q = q.replace(term, f'"{term}"')
+
+    return q
+
+
+def bing_search_fallback(query, proxies):
+    """Bing 搜索引擎无缝备用降级方案（智能提取关键词与过滤杂音/门户首页）"""
+    from loguru import logger
+    search_q = clean_search_query(query)
+    
+    # 补充论文/学术关键字
+    if any(k in query for k in ["论文", "RAG", "LLM", "模型", "架构", "paper", "arxiv"]):
+        search_q += " 论文 paper arxiv"
+
+    # 排除汉字字典、笔顺等单字误匹配杂音，以及通用入口首页
+    dictionary_keywords = ['笔顺', '汉典', '新华字典', '字典', '拼音', '部首', '笔画', '释义', '字义']
+    ignored_patterns = ["baike.baidu.com", "cnki.net/index", "cqvip.com/index", "wanfangdata.com.cn/index", "nlc.cn", "baidu.com/s?", "zdic.net"]
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+    }
+    try:
+        response = requests.get("https://cn.bing.com/search", params={'q': search_q}, headers=headers, proxies=proxies, timeout=10)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            results = []
+            for item in soup.find_all("li", class_="b_algo"):
+                h2 = item.find("h2")
+                if not h2: continue
+                a = h2.find("a")
+                if not a or not a.get("href"): continue
+                title = a.get_text()
+                link = a.get("href")
+
+                # 强效去除字典杂音与门户首页
+                if any(k in title for k in dictionary_keywords): continue
+                if any(p in link for p in ignored_patterns): continue
+
+                snippet = ""
+                p = item.find("p")
+                if p: snippet = p.get_text()
+                results.append({
+                    "title": title,
+                    "source": ["bing"],
+                    "content": snippet,
+                    "link": link
+                })
+            if results:
+                return results
+    except Exception as e:
+        logger.error(f"Bing 备用搜索异常: {e}")
+    return []
+
+
 def searxng_request(query, proxies, categories='general', searxng_url=None, engines=None):
+    from loguru import logger
     if searxng_url is None:
         urls = get_conf("SEARXNG_URLS")
         url = random.choice(urls)
@@ -147,23 +223,29 @@ def searxng_request(query, proxies, categories='general', searxng_url=None, engi
         'X-Real-IP': get_auth_ip()
     }
     results = []
-    response = requests.post(url, params=params, headers=headers, proxies=proxies, timeout=30)
-    if response.status_code == 200:
-        json_result = response.json()
-        for result in json_result['results']:
-            item = {
-                "title": result.get("title", ""),
-                "source": result.get("engines", "unknown"),
-                "content": result.get("content", ""),
-                "link": result["url"],
-            }
-            results.append(item)
-        return results
-    else:
-        if response.status_code == 429:
-            raise ValueError("Searxng（在线搜索服务）当前使用人数太多，请稍后。")
-        else:
-            raise ValueError("在线搜索失败，状态码: " + str(response.status_code) + '\t' + response.content.decode('utf-8'))
+    try:
+        response = requests.post(url, params=params, headers=headers, proxies=proxies, timeout=10)
+        if response.status_code == 200:
+            json_result = response.json()
+            for result in json_result.get('results', []):
+                item = {
+                    "title": result.get("title", ""),
+                    "source": result.get("engines", ["searxng"]),
+                    "content": result.get("content", ""),
+                    "link": result["url"],
+                }
+                results.append(item)
+            if results:
+                return results
+    except Exception as e:
+        logger.warning(f"Searxng API 检索失败 ({e})，正在自动切换至备用搜索引擎...")
+
+    # SearXNG 失败/失效时，自动平滑降级到 Bing 检索
+    bing_results = bing_search_fallback(query, proxies)
+    if bing_results:
+        return bing_results
+
+    raise ValueError("在线搜索服务暂时不可用，请稍后再试。")
 
 
 def scrape_text(url, proxies) -> str:

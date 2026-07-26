@@ -152,11 +152,22 @@ def Google_Scholar_Assistant_Legacy(txt, llm_kwargs, plugin_kwargs, chatbot, his
         yield from update_ui(chatbot=chatbot, history=history) # 刷新界面
         return
 
+    # 校验输入，自动拼接或校验 URL
+    txt = txt.strip()
+    if not txt:
+        chatbot.append(("输入错误", "[Local Message] 请在输入区填入谷歌学术（Google Scholar）的搜索页 URL，或填入要检索的学术关键词（例如：RAG long context 2024）。"))
+        yield from update_ui(chatbot=chatbot, history=history)
+        return
+
+    if not txt.startswith("http://") and not txt.startswith("https://"):
+        from urllib.parse import quote
+        txt = f"https://scholar.google.com/scholar?q={quote(txt)}"
+
     # 清空历史，以免输入溢出
     history = []
     meta_paper_info_list = yield from get_meta_information(txt, chatbot, history)
     if len(meta_paper_info_list) == 0:
-        yield from update_ui_latest_msg(lastmsg='获取文献失败，可能触发了google反爬虫机制。',chatbot=chatbot, history=history, delay=0)
+        yield from update_ui_latest_msg(lastmsg='获取文献失败，可能触发了google反爬虫机制或无法直连谷歌。',chatbot=chatbot, history=history, delay=0)
         return
     batchsize = 5
     for batch in range(math.ceil(len(meta_paper_info_list)/batchsize)):

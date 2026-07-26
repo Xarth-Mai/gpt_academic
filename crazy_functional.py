@@ -31,6 +31,7 @@ def get_crazy_functions():
     from crazy_functions.PDF_Summary import PDF_Summary
     from crazy_functions.PDF_Translate import 批量翻译PDF文档
     from crazy_functions.Google_Scholar_Assistant_Legacy import Google_Scholar_Assistant_Legacy
+    from crazy_functions.Arxiv_Search_Assistant import Arxiv_Search_Assistant
     from crazy_functions.PDF_QA import PDF_QA标准文件输入
     from crazy_functions.Latex_Project_Polish import Latex中文润色
     from crazy_functions.Latex_Project_Polish import Latex英文纠错
@@ -279,12 +280,19 @@ def get_crazy_functions():
             "Info": "批量总结PDF文档的内容 | 输入参数为路径",
             "Function": HotReload(PDF_Summary),
         },
-        "谷歌学术检索助手（输入谷歌学术搜索页url）": {
+        "谷歌学术检索助手（输入谷歌学术搜索页url或关键词）": {
             "Group": "学术",
             "Color": "stop",
             "AsButton": False,  # 加入下拉菜单中
-            "Info": "使用谷歌学术检索助手搜索指定URL的结果 | 输入参数为谷歌学术搜索页的URL",
+            "Info": "使用谷歌学术检索助手搜索指定URL或关键词的结果 | 输入参数为谷歌学术搜索页的URL或关键词",
             "Function": HotReload(Google_Scholar_Assistant_Legacy),
+        },
+        "Arxiv论文搜索助手（免代理直连）": {
+            "Group": "学术",
+            "Color": "stop",
+            "AsButton": True,  # 设为快捷按钮
+            "Info": "直连 arXiv 检索最新论文并生成归纳对比表格 | 输入参数为检索关键词，例如 RAG long context",
+            "Function": HotReload(Arxiv_Search_Assistant),
         },
         "理解PDF文档内容 （模仿ChatPDF）": {
             "Group": "学术",

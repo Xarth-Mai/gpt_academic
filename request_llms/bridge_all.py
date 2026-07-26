@@ -1199,11 +1199,14 @@ if "deepseekcoder" in AVAIL_LLM_MODELS:   # deepseekcoder
         logger.error(trimmed_format_exc())
 
 # -=-=-=-=-=-=- 幻方-深度求索大模型在线API -=-=-=-=-=-=-
-claude_models = ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"]
-if any(item in claude_models for item in AVAIL_LLM_MODELS):
+claude_models = ["deepseek-chat", "deepseek-coder", "deepseek-reasoner", "deepseek-v4-pro", "deepseek-v4-flash"]
+if any(item in claude_models for item in AVAIL_LLM_MODELS) or any(m.startswith("deepseek-") for m in AVAIL_LLM_MODELS):
     try:
         deepseekapi_noui, deepseekapi_ui = get_predict_function(
-            api_key_conf_name="DEEPSEEK_API_KEY", max_output_token=4096, disable_proxy=False
+            api_key_conf_name="DEEPSEEK_API_KEY", max_output_token=8192, disable_proxy=False
+        )
+        deepseek_v4_noui, deepseek_v4_ui = get_predict_function(
+            api_key_conf_name="DEEPSEEK_API_KEY", max_output_token=384000, disable_proxy=False
         )
         model_info.update({
             "deepseek-chat":{
@@ -1234,7 +1237,37 @@ if any(item in claude_models for item in AVAIL_LLM_MODELS):
                 "token_cnt": get_token_num_gpt35,
                 "enable_reasoning": True
             },
+            "deepseek-v4-pro":{
+                "fn_with_ui": deepseek_v4_ui,
+                "fn_without_ui": deepseek_v4_noui,
+                "endpoint": deepseekapi_endpoint,
+                "can_multi_thread": True,
+                "max_token": 1000000,   # 上下文长度 1M Token
+                "tokenizer": tokenizer_gpt35,
+                "token_cnt": get_token_num_gpt35,
+            },
+            "deepseek-v4-flash":{
+                "fn_with_ui": deepseek_v4_ui,
+                "fn_without_ui": deepseek_v4_noui,
+                "endpoint": deepseekapi_endpoint,
+                "can_multi_thread": True,
+                "max_token": 1000000,   # 上下文长度 1M Token
+                "tokenizer": tokenizer_gpt35,
+                "token_cnt": get_token_num_gpt35,
+            },
         })
+        # 支持任意以 deepseek- 开头的自定义/扩展模型名
+        for m in AVAIL_LLM_MODELS:
+            if m.startswith("deepseek-") and m not in model_info:
+                model_info[m] = {
+                    "fn_with_ui": deepseek_v4_ui,
+                    "fn_without_ui": deepseek_v4_noui,
+                    "endpoint": deepseekapi_endpoint,
+                    "can_multi_thread": True,
+                    "max_token": 1000000,   # 上下文长度 1M Token
+                    "tokenizer": tokenizer_gpt35,
+                    "token_cnt": get_token_num_gpt35,
+                }
     except:
         logger.error(trimmed_format_exc())
 
